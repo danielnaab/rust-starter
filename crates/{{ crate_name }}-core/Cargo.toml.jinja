@@ -1,0 +1,16 @@
+[package]
+name = "{{ core_crate }}"
+version = "0.1.0"
+edition = "2021"
+description = "Core types, traits, and errors for {{ project_name }}"
+{% if license != "Proprietary" -%}
+license = "{{ license }}"
+{% endif -%}
+authors = ["{{ author_name }} <{{ author_email }}>"]
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+
+[lints]
+workspace = true

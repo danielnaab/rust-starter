@@ -1,0 +1,40 @@
+name: {{ crate_name }}
+description: "{{ project_description }}"
+
+entrypoints:
+  human: docs/README.md
+  agent: docs/agents.md
+
+imports:
+  - path: .graft/rust-starter
+    relationship: foundational
+    sync_policy: "pin to graft.lock version; update via graft pull"
+
+paths:
+  source: src/
+  crates: crates/
+  tests: tests/
+
+sources:
+  canonical:
+    - path: src/
+      note: "Binary entry point"
+    - path: crates/
+      note: "Library crates — domain types, traits, business logic"
+    - path: Cargo.toml
+      note: "Workspace and binary configuration"
+    - path: tests/
+      note: "Integration tests document expected behavior"
+
+rules:
+  lifecycle:
+    statuses: ["draft", "working", "stable", "deprecated"]
+  provenance:
+    requiredFor: ["factual-claims", "operational-guidance", "architectural-decisions"]
+  writes:
+    allow: ["src/**", "crates/**", "tests/**", "docs/**"]
+    deny: []
+
+conventions:
+  linking: "Use relative Markdown links [text](path) for navigation"
+  code_references: "Link to files with line numbers: path/file.rs:123"

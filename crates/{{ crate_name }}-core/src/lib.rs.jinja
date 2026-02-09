@@ -1,0 +1,27 @@
+{% if include_example_code -%}
+//! Core types, traits, and errors for {{ project_name }}.
+
+mod domain;
+mod error;
+mod traits;
+
+pub use domain::ItemId;
+pub use error::{CoreError, ValidationError};
+pub use traits::Store;
+{% else -%}
+//! Core types, traits, and errors for {{ project_name }}.
+//!
+//! Define domain types in `domain.rs`, error types in `error.rs`,
+//! and trait ports in `traits.rs`.
+//!
+//! See: .graft/rust-starter/docs/architecture/architecture.md#core-crate-patterns
+
+mod domain;
+mod error;
+mod traits;
+
+// Re-export public API here as you add types:
+// pub use domain::MyType;
+// pub use error::MyError;
+// pub use traits::MyTrait;
+{% endif -%}

@@ -1,0 +1,142 @@
+# Copier template configuration for Rust Starter Template
+# This file defines template variables and generation settings
+
+_min_copier_version: "9.0.0"
+
+# Answers file configuration
+_answers_file: .copier-answers.yml
+
+# Template file extension
+_templates_suffix: .jinja
+
+# Files to exclude from template
+_exclude:
+  - copier.yml
+  - .git
+  - target
+  - .DS_Store
+  # Template documentation — stays in template, not generated in projects
+  - docs/copier
+  - docs/architecture
+  - docs/decisions
+  - docs/guides
+  - docs/reference
+  # Conditional
+  - "{% if not include_github_actions %}.github{% endif %}"
+
+# Files users will modify — protect during updates
+_skip_if_exists:
+  - src/main.rs
+  - "crates/{{ crate_name }}-core/src/domain.rs"
+  - "crates/{{ crate_name }}-core/src/error.rs"
+  - "crates/{{ crate_name }}-core/src/traits.rs"
+  - "crates/{{ crate_name }}-engine/src/service.rs"
+  - tests/common/mod.rs
+  - tests/integration_test.rs
+  - README.md
+  - docs/agents.md
+  - knowledge-base.yaml
+
+# Template questions (user prompts)
+
+project_name:
+  type: str
+  help: Project name (human-readable)
+  default: My Rust Project
+  validator: "{% if not project_name %}Project name cannot be empty{% endif %}"
+
+project_description:
+  type: str
+  help: Short project description
+  default: A Rust project built with idiomatic patterns
+
+crate_name:
+  type: str
+  help: Cargo crate name (kebab-case)
+  default: "{{ project_name.lower().replace(' ', '-').replace('_', '-') }}"
+  validator: >-
+    {% if not crate_name %}
+    Crate name cannot be empty
+    {% elif ' ' in crate_name %}
+    Crate name must not contain spaces
+    {% elif crate_name.startswith('-') or crate_name.endswith('-') %}
+    Crate name must not start or end with a hyphen
+    {% endif %}
+
+author_name:
+  type: str
+  help: Author name
+  default: Your Name
+
+author_email:
+  type: str
+  help: Author email
+  default: you@example.com
+  validator: >-
+    {% if '@' not in author_email %}
+    Must be a valid email address
+    {% endif %}
+
+include_example_code:
+  type: bool
+  help: Include example domain code and tests?
+  default: true
+
+include_github_actions:
+  type: bool
+  help: Include GitHub Actions CI workflow?
+  default: true
+
+license:
+  type: str
+  help: Project license
+  default: MIT
+  choices:
+    - MIT
+    - Apache-2.0
+    - BSD-3-Clause
+    - GPL-3.0
+    - Proprietary
+
+# Computed variables (not shown to user)
+module_name:
+  type: str
+  default: "{{ crate_name.replace('-', '_') }}"
+  when: false
+
+core_crate:
+  type: str
+  default: "{{ crate_name }}-core"
+  when: false
+
+engine_crate:
+  type: str
+  default: "{{ crate_name }}-engine"
+  when: false
+
+core_module:
+  type: str
+  default: "{{ crate_name.replace('-', '_') }}_core"
+  when: false
+
+engine_module:
+  type: str
+  default: "{{ crate_name.replace('-', '_') }}_engine"
+  when: false
+
+current_year:
+  type: str
+  default: "2025"
+  when: false
+
+# Post-generation tasks
+_tasks:
+  # Initialize git if not exists
+  - command: git init
+    when: "{{ _copier_operation == 'copy' }}"
+
+  - command: git add .
+    when: "{{ _copier_operation == 'copy' }}"
+
+  - command: "git commit -m \"Initial commit from Rust Starter Template\""
+    when: "{{ _copier_operation == 'copy' }}"

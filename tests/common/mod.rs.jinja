@@ -1,0 +1,47 @@
+{% if include_example_code -%}
+//! Shared test fakes for integration tests.
+
+use std::collections::HashMap;
+
+use {{ core_module }}::{CoreError, ItemId, Store};
+
+/// A fake store for testing.
+///
+/// Uses builder pattern for readable test setup:
+/// ```ignore
+/// let store = FakeStore::new()
+///     .with_item("id-1", "First item")
+///     .with_item("id-2", "Second item");
+/// ```
+pub struct FakeStore {
+    items: HashMap<String, String>,
+}
+
+impl FakeStore {
+    pub fn new() -> Self {
+        Self {
+            items: HashMap::new(),
+        }
+    }
+
+    pub fn with_item(mut self, id: &str, description: &str) -> Self {
+        self.items.insert(id.to_string(), description.to_string());
+        self
+    }
+}
+
+impl Store for FakeStore {
+    fn lookup(&self, id: &ItemId) -> Result<String, CoreError> {
+        self.items.get(id.as_str()).cloned().ok_or_else(|| {
+            CoreError::Validation({{ core_module }}::ValidationError::empty_field("item"))
+        })
+    }
+}
+{% else -%}
+//! Shared test fakes for integration tests.
+//!
+//! Define fake implementations of your traits here for use
+//! across integration tests. Use builder pattern for setup.
+//!
+//! See: .graft/rust-starter/docs/architecture/architecture.md#testing-patterns
+{% endif -%}

@@ -1,0 +1,63 @@
+{% if include_example_code -%}
+//! Error types for {{ project_name }}.
+
+use thiserror::Error;
+
+/// Top-level error for the core crate.
+#[derive(Debug, Error)]
+pub enum CoreError {
+    /// A validation error occurred.
+    #[error(transparent)]
+    Validation(#[from] ValidationError),
+}
+
+/// Validation errors for domain types.
+#[derive(Debug, Error)]
+pub enum ValidationError {
+    /// A required field was empty.
+    #[error("{field} cannot be empty")]
+    EmptyField {
+        /// The name of the field that was empty.
+        field: &'static str,
+    },
+
+    /// A field had an invalid format.
+    #[error("{field} has invalid format: {reason}")]
+    InvalidFormat {
+        /// The name of the field.
+        field: &'static str,
+        /// Why the format is invalid.
+        reason: &'static str,
+    },
+}
+
+impl ValidationError {
+    /// Create an error for an empty field.
+    pub fn empty_field(field: &'static str) -> Self {
+        Self::EmptyField { field }
+    }
+
+    /// Create an error for an invalid format.
+    pub fn invalid_format(field: &'static str, reason: &'static str) -> Self {
+        Self::InvalidFormat { field, reason }
+    }
+}
+{% else -%}
+//! Error types for {{ project_name }}.
+//!
+//! Define error enums here using `thiserror`. One enum per domain concern.
+//! Use structured fields, not formatted strings.
+//!
+//! See: .graft/rust-starter/docs/architecture/architecture.md#error-types
+//!
+//! Example:
+//! ```ignore
+//! use thiserror::Error;
+//!
+//! #[derive(Debug, Error)]
+//! pub enum CoreError {
+//!     #[error("{field} cannot be empty")]
+//!     EmptyField { field: &'static str },
+//! }
+//! ```
+{% endif -%}

@@ -1,0 +1,16 @@
+[package]
+name = "{{ engine_crate }}"
+version = "0.1.0"
+edition = "2021"
+description = "Business logic for {{ project_name }}"
+{% if license != "Proprietary" -%}
+license = "{{ license }}"
+{% endif -%}
+authors = ["{{ author_name }} <{{ author_email }}>"]
+
+[dependencies]
+{{ core_crate }} = { path = "../{{ core_crate }}" }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

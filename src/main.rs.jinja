@@ -1,0 +1,96 @@
+{% if include_example_code -%}
+use std::collections::HashMap;
+
+use anyhow::{Context, Result};
+use clap::{Parser, Subcommand};
+use {{ core_module }}::{CoreError, ItemId, Store};
+use {{ engine_module }}::process;
+
+#[derive(Parser)]
+#[command(name = "{{ crate_name }}", about = "{{ project_description }}")]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Process an item by ID
+    Process {
+        /// The item ID to process
+        id: String,
+    },
+    /// Show version information
+    Version,
+}
+
+/// In-memory store for demonstration.
+struct InMemoryStore {
+    items: HashMap<String, String>,
+}
+
+impl InMemoryStore {
+    fn new() -> Self {
+        let mut items = HashMap::new();
+        items.insert("example".to_string(), "An example item".to_string());
+        Self { items }
+    }
+}
+
+impl Store for InMemoryStore {
+    fn lookup(&self, id: &ItemId) -> Result<String, CoreError> {
+        self.items.get(id.as_str()).cloned().ok_or_else(|| {
+            CoreError::Validation({{ core_module }}::ValidationError::empty_field("item"))
+        })
+    }
+}
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    match cli.command {
+        Command::Process { id } => cmd_process(&id),
+        Command::Version => cmd_version(),
+    }
+}
+
+fn cmd_process(id: &str) -> Result<()> {
+    let item_id = ItemId::new(id).context("invalid item ID")?;
+    let store = InMemoryStore::new();
+    let result = process(&store, &item_id).context("failed to process item")?;
+    println!("{result}");
+    Ok(())
+}
+
+fn cmd_version() -> Result<()> {
+    println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+    Ok(())
+}
+{% else -%}
+use anyhow::Result;
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(name = "{{ crate_name }}", about = "{{ project_description }}")]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Show version information
+    Version,
+}
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    match cli.command {
+        Command::Version => {
+            println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
+    }
+}
+{% endif -%}

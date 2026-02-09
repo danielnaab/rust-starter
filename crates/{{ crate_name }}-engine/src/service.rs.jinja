@@ -1,0 +1,82 @@
+{% if include_example_code -%}
+//! Service functions for {{ project_name }}.
+
+use {{ core_module }}::{CoreError, ItemId, Store};
+use thiserror::Error;
+
+/// Errors that can occur during processing.
+#[derive(Debug, Error)]
+pub enum ProcessError {
+    /// An error from the core layer.
+    #[error(transparent)]
+    Core(#[from] CoreError),
+}
+
+/// Process an item by looking it up in the store.
+///
+/// # Errors
+///
+/// Returns `ProcessError` if the lookup fails.
+pub fn process(store: &impl Store, id: &ItemId) -> Result<String, ProcessError> {
+    let description = store.lookup(id)?;
+    Ok(format!("{id}: {description}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    struct FakeStore {
+        items: HashMap<String, String>,
+    }
+
+    impl FakeStore {
+        fn new() -> Self {
+            Self {
+                items: HashMap::new(),
+            }
+        }
+
+        fn with_item(mut self, id: &str, description: &str) -> Self {
+            self.items.insert(id.to_string(), description.to_string());
+            self
+        }
+    }
+
+    impl Store for FakeStore {
+        fn lookup(&self, id: &ItemId) -> Result<String, CoreError> {
+            self.items.get(id.as_str()).cloned().ok_or_else(|| {
+                CoreError::Validation({{ core_module }}::ValidationError::empty_field("item"))
+            })
+        }
+    }
+
+    #[test]
+    fn process_found_item() {
+        let store = FakeStore::new().with_item("test-1", "A test item");
+        let id = ItemId::new("test-1").unwrap();
+
+        let result = process(&store, &id).unwrap();
+        assert_eq!(result, "test-1: A test item");
+    }
+
+    #[test]
+    fn process_missing_item_returns_error() {
+        let store = FakeStore::new();
+        let id = ItemId::new("missing").unwrap();
+
+        let result = process(&store, &id);
+        assert!(result.is_err());
+    }
+}
+{% else -%}
+//! Service functions for {{ project_name }}.
+//!
+//! Implement business logic here. Functions should:
+//! - Accept trait bounds (`&impl MyTrait`) for testability
+//! - Return domain-specific `Result` types
+//! - Stay pure where possible
+//!
+//! See: .graft/rust-starter/docs/architecture/architecture.md#engine-crate-patterns
+{% endif -%}

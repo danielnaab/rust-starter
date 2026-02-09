@@ -1,0 +1,36 @@
+{% if include_example_code -%}
+//! Integration tests for {{ project_name }}.
+
+mod common;
+
+use common::FakeStore;
+use {{ core_module }}::ItemId;
+use {{ engine_module }}::process;
+
+#[test]
+fn process_item_end_to_end() {
+    let store = FakeStore::new().with_item("widget-1", "A test widget");
+    let id = ItemId::new("widget-1").unwrap();
+
+    let result = process(&store, &id).unwrap();
+    assert!(result.contains("widget-1"));
+    assert!(result.contains("A test widget"));
+}
+
+#[test]
+fn process_missing_item_returns_error() {
+    let store = FakeStore::new();
+    let id = ItemId::new("nonexistent").unwrap();
+
+    let result = process(&store, &id);
+    assert!(result.is_err());
+}
+{% else -%}
+//! Integration tests for {{ project_name }}.
+
+mod common;
+
+// Add integration tests here. Use shared fakes from common/mod.rs.
+//
+// See: .graft/rust-starter/docs/architecture/architecture.md#testing-patterns
+{% endif -%}

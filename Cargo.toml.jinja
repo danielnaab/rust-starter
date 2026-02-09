@@ -1,0 +1,38 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.dependencies]
+thiserror = "2"
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# Allow common patterns that pedantic flags
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+unnecessary_wraps = "allow"
+
+[package]
+name = "{{ crate_name }}"
+version = "0.1.0"
+edition = "2021"
+description = "{{ project_description }}"
+{% if license != "Proprietary" -%}
+license = "{{ license }}"
+{% endif -%}
+authors = ["{{ author_name }} <{{ author_email }}>"]
+
+[dependencies]
+{{ core_crate }} = { path = "crates/{{ core_crate }}" }
+{{ engine_crate }} = { path = "crates/{{ engine_crate }}" }
+anyhow = { workspace = true }
+clap = { workspace = true }
+
+[lints]
+workspace = true

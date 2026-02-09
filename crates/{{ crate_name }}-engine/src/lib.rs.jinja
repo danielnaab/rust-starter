@@ -1,0 +1,19 @@
+{% if include_example_code -%}
+//! Business logic for {{ project_name }}.
+
+mod service;
+
+pub use service::{process, ProcessError};
+{% else -%}
+//! Business logic for {{ project_name }}.
+//!
+//! Implement business logic here using trait bounds from the core crate.
+//! Keep functions pure where possible.
+//!
+//! See: .graft/rust-starter/docs/architecture/architecture.md#engine-crate-patterns
+
+mod service;
+
+// Re-export public API here as you add functions:
+// pub use service::my_function;
+{% endif -%}

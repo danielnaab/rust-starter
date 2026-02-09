@@ -1,0 +1,25 @@
+{% if include_example_code -%}
+//! Trait definitions (ports) for {{ project_name }}.
+
+use crate::{CoreError, ItemId};
+
+/// Look up an item by its identifier.
+///
+/// Implementations provide the concrete storage mechanism.
+/// Tests use fakes that implement this trait.
+pub trait Store {
+    /// Look up an item and return a description.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CoreError` if the item is not found or lookup fails.
+    fn lookup(&self, id: &ItemId) -> Result<String, CoreError>;
+}
+{% else -%}
+//! Trait definitions (ports) for {{ project_name }}.
+//!
+//! Define traits here for capabilities your engine needs.
+//! One capability per trait. Small interfaces are easier to fake in tests.
+//!
+//! See: .graft/rust-starter/docs/architecture/architecture.md#traits-ports
+{% endif -%}

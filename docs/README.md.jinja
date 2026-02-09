@@ -1,0 +1,50 @@
+---
+title: {{ project_name }} Documentation
+status: working
+---
+
+# {{ project_name }}
+
+{{ project_description }}
+
+## Quick Start
+
+```bash
+cargo build --all                # Build everything
+cargo run -- --help              # CLI help
+cargo test --all                 # Run all tests
+```
+
+## Project Structure
+
+```
+src/main.rs                      # CLI entry point (clap + anyhow)
+crates/
+├── {{ core_crate }}/            # Domain types, traits, errors
+└── {{ engine_crate }}/          # Business logic
+tests/                           # Integration tests
+```
+
+## Architecture & Patterns
+
+This project uses the [Rust Starter Template](.graft/rust-starter) patterns:
+
+- [Architecture](.graft/rust-starter/docs/architecture/architecture.md) — layers, trait-based DI, error handling
+- [Decisions](.graft/rust-starter/docs/decisions/) — ADRs for pattern choices
+- [Getting Started](.graft/rust-starter/docs/guides/getting-started.md) | [Development Guide](.graft/rust-starter/docs/guides/development.md)
+- [Reference](.graft/rust-starter/docs/reference/project-reference.md) — structure, config, tooling
+
+## Project-Specific
+
+- [Agent Entrypoint](agents.md) — for AI agents working on this project
+- [Knowledge Base](../knowledge-base.yaml) — project KB configuration
+
+## Template
+
+- **Version**: {{ _copier_conf.vcs_ref_hash }}
+- **Update**: `copier update --trust`
+
+## Sources
+
+- [Template Documentation](.graft/rust-starter/docs/)
+- [Knowledge Base Config](../knowledge-base.yaml)

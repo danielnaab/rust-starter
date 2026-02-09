@@ -1,0 +1,74 @@
+{% if include_example_code -%}
+//! Domain types for {{ project_name }}.
+
+use crate::error::ValidationError;
+
+/// A unique identifier for an item.
+///
+/// Validated at construction — code that receives an `ItemId`
+/// knows it's already valid.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ItemId(String);
+
+impl ItemId {
+    /// Create a new item ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ValidationError` if the ID is empty or contains spaces.
+    pub fn new(id: impl Into<String>) -> Result<Self, ValidationError> {
+        let id = id.into();
+        if id.is_empty() {
+            return Err(ValidationError::empty_field("item ID"));
+        }
+        if id.contains(' ') {
+            return Err(ValidationError::invalid_format(
+                "item ID",
+                "must not contain spaces",
+            ));
+        }
+        Ok(Self(id))
+    }
+
+    /// Returns the ID as a string slice.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for ItemId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn valid_id() {
+        let id = ItemId::new("widget-1").unwrap();
+        assert_eq!(id.as_str(), "widget-1");
+    }
+
+    #[test]
+    fn empty_id_rejected() {
+        let err = ItemId::new("").unwrap_err();
+        assert!(err.to_string().contains("cannot be empty"));
+    }
+
+    #[test]
+    fn id_with_spaces_rejected() {
+        let err = ItemId::new("bad id").unwrap_err();
+        assert!(err.to_string().contains("invalid format"));
+    }
+}
+{% else -%}
+//! Domain types for {{ project_name }}.
+//!
+//! Define your domain types here. Use newtypes for identifiers,
+//! validate at construction, and make invalid states unrepresentable.
+//!
+//! See: .graft/rust-starter/docs/architecture/architecture.md#domain-types
+{% endif -%}
