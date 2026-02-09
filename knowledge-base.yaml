@@ -1,0 +1,33 @@
+name: rust-starter
+description: "Idiomatic Rust patterns and architectural guidance"
+
+entrypoints:
+  human: docs/README.md
+  agent: docs/agents.md
+
+imports:
+  - path: .graft/meta-knowledge-base
+    relationship: foundational
+
+paths:
+  architecture: docs/architecture/
+  guides: docs/guides/
+  reference: docs/reference/
+  decisions: docs/decisions/
+
+sources:
+  canonical:
+    - path: "docs/decisions/"
+      note: "ADRs are authoritative for pattern choices"
+    - path: "docs/architecture/"
+      note: "Architecture document defines the structural patterns"
+  interpretive:
+    - path: "docs/guides/"
+      note: "Guides interpret architecture for practical application"
+    - path: "docs/reference/"
+      note: "Reference material derived from patterns"
+
+conventions:
+  links: "relative markdown links only"
+  frontmatter: "YAML frontmatter with status on all docs"
+  code_examples: "inline in docs, compilable snippets preferred"
