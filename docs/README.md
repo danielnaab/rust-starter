@@ -27,7 +27,6 @@ See [agents.md](agents.md) for structured operational guidance.
 - [003: Trait-Based DI](decisions/003-trait-based-di.md) — Why traits at boundaries
 - [004: Error Handling](decisions/004-error-handling.md) — Why thiserror + anyhow
 - [005: clap CLI](decisions/005-clap-cli.md) — Why clap derive
-- [006: clippy + rustfmt](decisions/006-clippy-rustfmt.md) — Why both, which lints
 - [007: Newtype Pattern](decisions/007-newtype-pattern.md) — Why wrapped domain types
 - [008: Testing Without Mocks](decisions/008-testing-without-mocks.md) — Why trait fakes
 
@@ -36,4 +35,4 @@ See [agents.md](agents.md) for structured operational guidance.
 - [Development](guides/development.md) — Adding features step-by-step
 
 ### Reference
-- [Project Reference](reference/project-reference.md) — Structure, config, tooling
+- [Project Reference](reference/project-reference.md) — Structure, config, tooling, code quality

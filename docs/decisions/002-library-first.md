@@ -10,7 +10,7 @@ Rust applications can put logic directly in `main.rs` or factor it into library 
 
 ## Decision
 
-All business logic lives in library crates (`lib.rs`). Binary crates (`main.rs`) are thin wrappers that parse arguments, construct concrete types, call library functions, and format output.
+All business logic lives in library code (`lib.rs`). Binary crates (`main.rs`) are thin wrappers that parse arguments, construct concrete types, call library functions, and format output.
 
 ```
 Binary responsibility:
@@ -20,7 +20,7 @@ Binary responsibility:
   4. Format and print results
   5. Map errors to exit codes
 
-Everything else is in a library.
+Everything else is in the library.
 ```
 
 ## Rationale
@@ -46,3 +46,7 @@ Everything else is in a library.
 - **Logic in `main.rs`** — If you're writing `if`/`match` on domain concepts in main, it belongs in the library.
 - **Library depending on clap** — The library should never know it's being called from a CLI.
 - **Formatting in the library** — The library returns data. The binary decides how to present it.
+
+## See Also
+
+- [architecture.md — Binary Patterns](../architecture/architecture.md#binary-patterns) for the full binary example

@@ -1,10 +1,14 @@
 # Rust Starter
 
-Idiomatic Rust patterns and architectural guidance for graft ecosystem projects.
+Idiomatic Rust patterns and architectural guidance for Rust applications.
 
 ## What This Is
 
 A reference repository documenting patterns, conventions, and architectural decisions for building Rust applications. Not a project template — a living guide that agents and developers consult when building.
+
+## Scope
+
+These patterns target **application** architecture (CLI tools, TUI apps, services with business logic). For library-only crates, some patterns (anyhow, clap, binary layer) don't apply. For async services, additional patterns (tokio runtime, async traits) come into play.
 
 ## Quick Start
 
@@ -45,6 +49,5 @@ Dependencies flow inward. Core has no dependencies on outer layers. Adapters imp
 | Trait-based DI | Traits at boundaries, no dyn by default | [003](docs/decisions/003-trait-based-di.md) |
 | Error handling | thiserror for libs, anyhow for bins | [004](docs/decisions/004-error-handling.md) |
 | clap CLI | Derive-based, type-driven CLI | [005](docs/decisions/005-clap-cli.md) |
-| clippy + rustfmt | Built-in quality tools | [006](docs/decisions/006-clippy-rustfmt.md) |
 | Newtype pattern | Zero-cost domain type safety | [007](docs/decisions/007-newtype-pattern.md) |
 | Testing without mocks | Trait fakes with builder setup | [008](docs/decisions/008-testing-without-mocks.md) |

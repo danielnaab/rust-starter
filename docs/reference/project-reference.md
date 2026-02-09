@@ -8,26 +8,46 @@ Quick reference for project structure, configuration, and tooling.
 
 ## Directory Structure
 
+### Single Crate
+
 ```
-project/
+my-tool/
+  Cargo.toml              # Package definition
+  Cargo.lock              # Lockfile (committed for binaries)
+  rustfmt.toml            # rustfmt config
+  src/
+    main.rs               # Binary entry point (thin)
+    lib.rs                # Public API re-exports
+    domain.rs             # Domain model types
+    error.rs              # Error type definitions
+    store.rs              # Trait definitions + adapters
+  tests/
+    integration.rs        # Integration tests
+    fixtures/             # Test data files
+```
+
+### Workspace
+
+```
+my-tool/
   Cargo.toml              # Workspace root, binary definition
   Cargo.lock              # Lockfile (committed for binaries)
   rustfmt.toml            # rustfmt config
   src/
     main.rs               # Binary entry point (thin)
   crates/
-    project-core/         # Domain types, traits, errors
+    my-tool-core/         # Domain types, traits, errors
       Cargo.toml
       src/
         lib.rs            # Public API re-exports
         domain.rs         # Domain model types
         error.rs          # Error type definitions
-    project-engine/       # Business logic, orchestration
+    my-tool-engine/       # Business logic, orchestration
       Cargo.toml
       src/
         lib.rs            # Public API
-        resolve.rs        # Resolution logic
-        git.rs            # Git adapter
+        process.rs        # Processing logic
+        store.rs          # Storage adapter
   tests/                  # Integration tests
     common/
       mod.rs              # Shared test helpers and fakes
@@ -36,6 +56,28 @@ project/
 ```
 
 ## Cargo.toml Patterns
+
+### Single Crate
+
+```toml
+[package]
+name = "my-tool"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "2"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+```
 
 ### Workspace Root
 
@@ -49,7 +91,6 @@ edition = "2021"
 rust-version = "1.75"
 
 [workspace.dependencies]
-# Declare all dependency versions here
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 anyhow = "1"
@@ -63,17 +104,17 @@ must_use_candidate = "allow"
 missing_errors_doc = "allow"
 ```
 
-### Binary Crate
+### Binary Crate (workspace)
 
 ```toml
 [package]
-name = "my-project"
+name = "my-tool"
 version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
-my-project-core = { path = "crates/my-project-core" }
-my-project-engine = { path = "crates/my-project-engine" }
+my-tool-core = { path = "crates/my-tool-core" }
+my-tool-engine = { path = "crates/my-tool-engine" }
 anyhow.workspace = true
 clap.workspace = true
 
@@ -81,11 +122,11 @@ clap.workspace = true
 workspace = true
 ```
 
-### Library Crate
+### Library Crate (workspace)
 
 ```toml
 [package]
-name = "my-project-core"
+name = "my-tool-core"
 version = "0.1.0"
 edition.workspace = true
 
@@ -101,13 +142,54 @@ workspace = true
 
 | Crate | Purpose | Used In |
 |---|---|---|
-| `thiserror` | Derive error types | Library crates |
-| `anyhow` | Contextual error chains | Binary crate |
-| `serde` | Serialization framework | All crates |
+| `thiserror` | Derive error types | Library code |
+| `anyhow` | Contextual error chains | Binary code |
+| `serde` | Serialization framework | All modules |
 | `serde_yaml` | YAML parsing | Engine/binary |
 | `serde_json` | JSON output | Binary |
 | `clap` | CLI framework | Binary |
-| `tracing` | Structured logging | All crates |
+| `tracing` | Structured logging | All modules |
+
+## Code Quality
+
+### rustfmt Configuration
+
+```toml
+# rustfmt.toml (project root)
+edition = "2021"
+max_width = 100
+use_field_init_shorthand = true
+```
+
+Keep configuration minimal. The default rustfmt style is well-designed — override only what genuinely improves readability.
+
+### clippy Configuration
+
+```toml
+# In Cargo.toml [lints.clippy] or [workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+# Allow specific pedantic lints that conflict with common patterns
+module_name_repetitions = "allow"     # We prefer explicit module::TypeName
+must_use_candidate = "allow"          # Too noisy for most codebases
+missing_errors_doc = "allow"          # Error types are self-documenting
+```
+
+The `pedantic` lint group catches subtle issues. Allow-list the few that don't fit rather than disabling the whole group.
+
+### CI Commands
+
+```bash
+# Check formatting (fails on diff)
+cargo fmt --all -- --check
+
+# Run clippy (fails on warnings)
+cargo clippy --all-targets --all-features -- -D warnings
+
+# Run tests
+cargo test --all
+```
 
 ## Tooling Quick Reference
 
@@ -115,7 +197,7 @@ workspace = true
 |---|---|
 | Build all | `cargo build --all` |
 | Test all | `cargo test --all` |
-| Test one crate | `cargo test -p my-project-core` |
+| Test one crate | `cargo test -p my-tool-core` |
 | Lint | `cargo clippy --all-targets -- -D warnings` |
 | Format | `cargo fmt --all` |
 | Format check | `cargo fmt --all -- --check` |
@@ -128,12 +210,12 @@ workspace = true
 
 ```
 src/main.rs
-  depends on: project-engine, project-core, anyhow, clap
+  depends on: engine, core, anyhow, clap
 
-crates/project-engine/
-  depends on: project-core, thiserror
+crates/my-tool-engine/ (or src/lib.rs in single-crate)
+  depends on: core, thiserror
 
-crates/project-core/
+crates/my-tool-core/ (or core modules in single-crate)
   depends on: thiserror, serde
   depends on nothing from this workspace
 ```
@@ -149,8 +231,8 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use clap::Parser;
 
-use project_core::{DependencyName, ProjectConfig};
-use project_engine::resolve_all;
+use my_tool_core::{ItemId, Config};
+use my_tool_engine::process_all;
 
 use crate::output::format_table;
 ```

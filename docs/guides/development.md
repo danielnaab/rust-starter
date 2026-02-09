@@ -4,20 +4,17 @@ status: stable
 
 # Development Guide
 
-Step-by-step recipes for common development tasks.
+Step-by-step recipes for common development tasks. Each recipe shows the key steps with brief snippets — see [architecture.md](../architecture/architecture.md) for full patterns.
 
 ## Add a Domain Type
 
-**When:** You need a new concept in the core crate (entity, value object, identifier).
+**When:** You need a new concept in the core module (entity, value object, identifier).
 
 ### Steps
 
-1. **Define the type** in `crates/project-core/src/`:
+1. **Define the type** with validation in the constructor. For identifiers, use the newtype pattern — see [architecture.md#domain-types](../architecture/architecture.md#domain-types) for the full example.
 
 ```rust
-// domain.rs (or a new file if large)
-
-/// A repository URL pointing to a git remote.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct RepoUrl(String);
 
@@ -25,58 +22,20 @@ impl RepoUrl {
     pub fn new(url: impl Into<String>) -> Result<Self, ValidationError> {
         let url = url.into();
         if !url.contains("://") && !url.starts_with("git@") {
-            return Err(ValidationError::invalid_format(
-                "repository URL",
-                "must be a valid git URL",
-            ));
+            return Err(ValidationError::invalid_format("URL", "must be a valid URL"));
         }
         Ok(Self(url))
     }
 
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for RepoUrl {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
+    pub fn as_str(&self) -> &str { &self.0 }
 }
 ```
 
-2. **Re-export from lib.rs:**
+2. **Re-export from lib.rs:** `pub use domain::RepoUrl;`
 
-```rust
-pub use domain::RepoUrl;
-```
+3. **Write tests** — validation of valid/invalid inputs.
 
-3. **Write tests:**
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn accepts_https_url() {
-        let url = RepoUrl::new("https://github.com/user/repo").unwrap();
-        assert_eq!(url.as_str(), "https://github.com/user/repo");
-    }
-
-    #[test]
-    fn accepts_ssh_url() {
-        assert!(RepoUrl::new("git@github.com:user/repo").is_ok());
-    }
-
-    #[test]
-    fn rejects_bare_path() {
-        assert!(RepoUrl::new("just/a/path").is_err());
-    }
-}
-```
-
-4. **Verify:** `cargo test -p project-core`
+4. **Verify:** `cargo test` (or `cargo test -p my-tool-core` for workspaces).
 
 ## Add a Trait (Port)
 
@@ -84,86 +43,21 @@ mod tests {
 
 ### Steps
 
-1. **Define the trait** in the core crate:
+1. **Define the trait** in the core module — see [architecture.md#traits-ports](../architecture/architecture.md#traits-ports).
 
 ```rust
-// In crates/project-core/src/lib.rs (or a ports.rs file)
-
-/// Fetch repository metadata from a remote.
-pub trait RepoFetcher {
-    fn fetch_metadata(&self, url: &RepoUrl) -> Result<RepoMetadata, GitError>;
+pub trait MetadataFetcher {
+    fn fetch(&self, url: &RepoUrl) -> Result<Metadata, StoreError>;
 }
 ```
 
-2. **Use the trait** in the engine:
+2. **Use the trait** in engine code via `&impl MetadataFetcher`.
 
-```rust
-// In crates/project-engine/src/lib.rs
+3. **Write a fake** for testing — see [architecture.md#testing-patterns](../architecture/architecture.md#testing-patterns) for the full fake pattern.
 
-pub fn check_status(
-    fetcher: &impl RepoFetcher,
-    deps: &[Dependency],
-) -> Result<Vec<StatusReport>, EngineError> {
-    deps.iter()
-        .map(|dep| {
-            let metadata = fetcher.fetch_metadata(&dep.url)?;
-            Ok(StatusReport {
-                name: dep.name.clone(),
-                up_to_date: metadata.head == dep.locked_commit,
-            })
-        })
-        .collect()
-}
-```
+4. **Implement concretely** when ready (adapter in engine crate or dedicated crate).
 
-3. **Write a fake** for testing:
-
-```rust
-#[cfg(test)]
-mod tests {
-    struct FakeFetcher {
-        metadata: HashMap<RepoUrl, RepoMetadata>,
-    }
-
-    impl FakeFetcher {
-        fn new() -> Self { Self { metadata: HashMap::new() } }
-
-        fn with_repo(mut self, url: RepoUrl, metadata: RepoMetadata) -> Self {
-            self.metadata.insert(url, metadata);
-            self
-        }
-    }
-
-    impl RepoFetcher for FakeFetcher {
-        fn fetch_metadata(&self, url: &RepoUrl) -> Result<RepoMetadata, GitError> {
-            self.metadata.get(url).cloned()
-                .ok_or(GitError::NotFound { url: url.clone() })
-        }
-    }
-}
-```
-
-4. **Implement concretely** (adapter) when ready:
-
-```rust
-// In crates/project-engine/src/git.rs (or a separate adapter crate)
-
-pub struct GitRepoFetcher;
-
-impl RepoFetcher for GitRepoFetcher {
-    fn fetch_metadata(&self, url: &RepoUrl) -> Result<RepoMetadata, GitError> {
-        // Real git operations here
-    }
-}
-```
-
-5. **Wire in the binary:**
-
-```rust
-// src/main.rs
-let fetcher = GitRepoFetcher;
-let status = check_status(&fetcher, &config.dependencies)?;
-```
+5. **Wire in the binary** — construct the concrete type and pass it.
 
 ## Add a CLI Subcommand
 
@@ -174,52 +68,17 @@ let status = check_status(&fetcher, &config.dependencies)?;
 1. **Add a variant** to the `Command` enum:
 
 ```rust
-#[derive(Subcommand)]
-enum Command {
-    // ... existing commands ...
-
-    /// Check if dependencies are up to date
-    Check {
-        /// Show details for each dependency
-        #[arg(long)]
-        verbose: bool,
-    },
-}
+/// Check if items are up to date
+Check {
+    /// Show details for each item
+    #[arg(long)]
+    verbose: bool,
+},
 ```
 
-2. **Add a handler function:**
+2. **Add a handler function** that constructs adapters, calls engine, and formats output — see [architecture.md#binary-patterns](../architecture/architecture.md#binary-patterns) for the full pattern.
 
-```rust
-fn cmd_check(json: bool, verbose: bool) -> anyhow::Result<()> {
-    let reader = FileConfigReader::new();
-    let config = reader.read_config(Path::new("graft.yaml"))
-        .context("failed to load config")?;
-
-    let fetcher = GitRepoFetcher;
-    let status = check_status(&fetcher, &config.dependencies)
-        .context("status check failed")?;
-
-    if json {
-        println!("{}", serde_json::to_string_pretty(&status)?);
-    } else {
-        for report in &status {
-            let icon = if report.up_to_date { "ok" } else { "outdated" };
-            println!("{}: {}", report.name, icon);
-        }
-    }
-
-    Ok(())
-}
-```
-
-3. **Wire in main:**
-
-```rust
-match cli.command {
-    // ...
-    Command::Check { verbose } => cmd_check(cli.json, verbose),
-}
-```
+3. **Wire in main:** add a match arm.
 
 4. **Test:** `cargo run -- check --help` to verify help text.
 
@@ -232,26 +91,15 @@ match cli.command {
 1. **Add the variant** to the relevant error enum:
 
 ```rust
-#[derive(Debug, Error)]
-pub enum GitError {
-    // ... existing variants ...
-
-    #[error("authentication failed for {url}")]
-    AuthFailed { url: RepoUrl },
-}
+#[error("authentication failed for {url}")]
+AuthFailed { url: String },
 ```
 
-2. **Add a constructor** if the variant has multiple fields:
+2. **Add a constructor** if the variant has multiple fields.
 
-```rust
-impl GitError {
-    pub fn auth_failed(url: &RepoUrl) -> Self {
-        Self::AuthFailed { url: url.clone() }
-    }
-}
-```
+3. **Handle it** — the compiler will tell you about non-exhaustive match arms.
 
-3. **Handle it** where it can occur. The compiler will tell you about non-exhaustive match arms.
+See [architecture.md#error-types](../architecture/architecture.md#error-types) for full error design patterns.
 
 ## Run Quality Checks
 
@@ -262,14 +110,18 @@ cargo clippy --all-targets -- -D warnings   # Linting
 cargo test --all                    # Tests
 cargo doc --no-deps                 # Documentation builds
 
-# Quick iteration
-cargo test -p project-engine        # Test one crate
-cargo clippy -p project-core        # Lint one crate
+# Quick iteration (workspace projects)
+cargo test -p my-tool-engine        # Test one crate
+cargo clippy -p my-tool-core        # Lint one crate
 ```
 
 ## Dependency Management
 
 ### Add a dependency
+
+For single-crate projects, add directly to `[dependencies]`.
+
+For workspaces:
 
 ```toml
 # 1. Add to workspace dependencies (Cargo.toml root)

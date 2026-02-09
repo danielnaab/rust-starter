@@ -6,40 +6,13 @@ status: accepted
 
 ## Context
 
-Rust projects can be a single crate or a workspace of multiple crates. We need to decide how to structure multi-component projects like graft (core types + engine + CLI) and grove (core + engine + TUI).
+Rust projects can be a single crate or a workspace of multiple crates. We need to decide how to structure multi-component projects (core types + engine + CLI).
 
 ## Decision
 
-Use cargo workspaces with a `crates/` directory for library crates and root-level `src/` for the primary binary.
+Start with a single crate. Evolve into a cargo workspace with a `crates/` directory when genuine boundaries emerge.
 
-```toml
-# Cargo.toml (workspace root)
-[workspace]
-resolver = "2"
-members = ["crates/*"]
-
-[workspace.package]
-edition = "2021"
-license = "MIT"
-rust-version = "1.75"
-
-[workspace.dependencies]
-serde = { version = "1", features = ["derive"] }
-thiserror = "2"
-anyhow = "1"
-clap = { version = "4", features = ["derive"] }
-
-[package]
-name = "my-project"
-version = "0.1.0"
-edition.workspace = true
-
-[dependencies]
-my-project-core = { path = "crates/my-project-core" }
-my-project-engine = { path = "crates/my-project-engine" }
-anyhow.workspace = true
-clap.workspace = true
-```
+For workspaces, use `[workspace.dependencies]` for shared versions and `resolver = "2"` for correct feature unification.
 
 ## Rationale
 
@@ -51,7 +24,7 @@ clap.workspace = true
 
 ## Alternatives Considered
 
-**Single crate with modules:** Simpler for small projects, but boundaries become suggestions rather than enforced. Acceptable for projects under ~2000 lines.
+**Single crate with modules:** Simpler for small projects, but boundaries become suggestions rather than enforced. This is the recommended starting point — only add workspace structure when you outgrow it.
 
 **Separate repositories:** Maximum isolation but painful for coordinated changes. Only warranted for truly independent libraries.
 
@@ -60,8 +33,12 @@ clap.workspace = true
 Split when:
 - Two components have genuinely different dependency trees
 - Compile time matters and changes are localized
-- A library is reusable across projects (e.g., git operations)
+- A library is reusable across projects
 
 Don't split when:
 - The project is small and boundaries would be ceremony
 - You're splitting speculatively "in case we need it later"
+
+## See Also
+
+- [architecture.md — Crate Structure](../architecture/architecture.md#crate-structure) for full layout examples

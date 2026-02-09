@@ -13,40 +13,6 @@ Rust has two error handling paradigms: `Result<T, E>` for recoverable errors and
 - **Libraries:** Custom error enums with `thiserror`. Never panic.
 - **Binaries:** `anyhow::Result` with `.context()` for error chains. Panic only in truly unreachable code.
 
-### Library Errors (thiserror)
-
-```rust
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum ConfigError {
-    #[error("config file not found: {path}")]
-    NotFound { path: PathBuf },
-
-    #[error("invalid config at line {line}: {reason}")]
-    Invalid { line: usize, reason: String },
-
-    #[error("failed to read config")]
-    Io(#[from] std::io::Error),
-}
-```
-
-### Binary Errors (anyhow)
-
-```rust
-use anyhow::{Context, Result};
-
-fn main() -> Result<()> {
-    let config = load_config(path)
-        .context("failed to load project config")?;
-
-    let resolved = resolve_all(&config, &resolver)
-        .context("dependency resolution failed")?;
-
-    Ok(())
-}
-```
-
 ## Rationale
 
 **Why thiserror for libraries:**
@@ -57,7 +23,7 @@ fn main() -> Result<()> {
 
 **Why anyhow for binaries:**
 - Errors are displayed to humans, not matched programmatically
-- `.context()` builds readable error chains: `"failed to load project config: config file not found: graft.yaml"`
+- `.context()` builds readable error chains: `"failed to load config: config file not found: config.yaml"`
 - Erases type complexity at the boundary where it no longer matters
 
 **Why never panic in libraries:**
@@ -67,7 +33,7 @@ fn main() -> Result<()> {
 
 ## Error Design Guidelines
 
-1. **One error enum per domain concern** — `ConfigError`, `GitError`, `ValidationError`. Not one giant `Error` enum.
+1. **One error enum per domain concern** — `RepoError`, `StoreError`, `ValidationError`. Not one giant `Error` enum.
 
 2. **Structured fields over formatted messages** — `NotFound { path }` not `NotFound(String)`. Callers can extract the path.
 
@@ -84,14 +50,13 @@ fn main() -> Result<()> {
 
 5. **Convert at boundaries:**
    ```rust
-   // Engine wraps core errors
    #[derive(Debug, Error)]
-   pub enum EngineError {
+   pub enum ProcessError {
        #[error("configuration error")]
-       Config(#[from] ConfigError),
+       Config(#[from] RepoError),
 
-       #[error("git operation failed")]
-       Git(#[from] GitError),
+       #[error("store operation failed")]
+       Store(#[from] StoreError),
    }
    ```
 
@@ -102,3 +67,8 @@ fn main() -> Result<()> {
 **`std::error::Error` manually:** Works but verbose. `thiserror` generates the same code with less boilerplate.
 
 **`eyre` instead of `anyhow`:** Similar capabilities. `anyhow` has larger ecosystem adoption and simpler API.
+
+## See Also
+
+- [architecture.md — Error Types](../architecture/architecture.md#error-types) for full error type examples
+- [architecture.md — Conversions and Builders](../architecture/architecture.md#from-and-error-conversion) for how `From` powers `?`

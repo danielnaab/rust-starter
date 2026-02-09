@@ -4,7 +4,11 @@ status: stable
 
 # Architecture
 
-Patterns for structuring Rust applications in the graft ecosystem.
+Patterns for structuring Rust applications.
+
+## Scope
+
+These patterns target **application** architecture: CLI tools, TUI apps, services with business logic. For library-only crates, some patterns (anyhow, clap, the binary layer) don't apply. For async services, additional patterns (tokio runtime, async traits) come into play — those are not covered here.
 
 ## Layers
 
@@ -31,36 +35,66 @@ Patterns for structuring Rust applications in the graft ecosystem.
 
 **Dependency rule:** Dependencies point inward. Core depends on nothing. Engine depends on core. Adapters depend on core (to implement its traits). Binary depends on everything.
 
+**Adapter placement:** Adapters implementing core traits live in the engine crate (or a dedicated adapter crate for larger projects), not in core. Core defines *what* is needed; adapters provide *how*.
+
 ## Crate Structure
 
-A typical project has 2-3 crates in a cargo workspace:
+### Starting Point
+
+Start with a single crate. This is the right choice for most new projects:
 
 ```
-project/
+my-tool/
+  Cargo.toml
+  src/
+    main.rs         # Entry point
+    lib.rs          # Public API, re-exports
+    domain.rs       # Domain types
+    store.rs        # Trait definitions + adapter implementations
+    error.rs        # Error types
+  tests/
+    integration.rs  # Integration tests
+```
+
+A single crate with `src/lib.rs` + `src/main.rs` gives you testable library code and a thin binary in one package. The module system provides logical boundaries without the overhead of a workspace.
+
+### When to Evolve into a Workspace
+
+Split into a workspace when:
+- Two components have genuinely different dependency trees
+- Compile time matters and changes are localized to one area
+- A library is reusable across projects (e.g., a shared protocol crate)
+
+Don't split when:
+- The project is small and boundaries would be ceremony
+- You're splitting speculatively "in case we need it later"
+
+### Workspace Layout
+
+When a workspace is warranted, use `crates/` for libraries and root-level `src/` for the primary binary:
+
+```
+my-tool/
   Cargo.toml                    # [workspace] root
   crates/
-    project-core/               # Types, traits, errors
+    my-tool-core/               # Types, traits, errors
       Cargo.toml
       src/
         lib.rs                  # pub use re-exports
         config.rs               # Configuration types
         domain.rs               # Domain model
         error.rs                # Error types
-    project-engine/             # Business logic
-      Cargo.toml                # depends on project-core
+    my-tool-engine/             # Business logic
+      Cargo.toml                # depends on my-tool-core
       src/
         lib.rs
-        resolve.rs              # Resolution logic
-        git.rs                  # Git adapter (implements core traits)
+        process.rs              # Processing logic
+        store.rs                # Storage adapter (implements core traits)
   src/
     main.rs                     # Binary entry point
   tests/
-    resolve_integration.rs      # Integration tests
+    process_integration.rs      # Integration tests
 ```
-
-**When to split crates:** Start with core + engine. Add crates when a clear boundary emerges (e.g., `project-git` if git operations become substantial and reusable).
-
-**When not to split:** Don't split preemptively. A single `lib.rs` with modules is fine for small projects. Split when compile times matter or when you need independent versioning.
 
 ## Core Crate Patterns
 
@@ -71,23 +105,23 @@ Core contains domain types, trait definitions, and error types. It has minimal d
 ```rust
 use std::path::PathBuf;
 
-/// A dependency name as declared in configuration.
+/// A unique identifier for an item.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DependencyName(String);
+pub struct ItemId(String);
 
-impl DependencyName {
-    pub fn new(name: impl Into<String>) -> Result<Self, ValidationError> {
-        let name = name.into();
-        if name.is_empty() {
-            return Err(ValidationError::empty_field("dependency name"));
+impl ItemId {
+    pub fn new(id: impl Into<String>) -> Result<Self, ValidationError> {
+        let id = id.into();
+        if id.is_empty() {
+            return Err(ValidationError::empty_field("item ID"));
         }
-        if name.contains(' ') {
+        if id.contains(' ') {
             return Err(ValidationError::invalid_format(
-                "dependency name",
+                "item ID",
                 "must not contain spaces",
             ));
         }
-        Ok(Self(name))
+        Ok(Self(id))
     }
 
     pub fn as_str(&self) -> &str {
@@ -95,52 +129,52 @@ impl DependencyName {
     }
 }
 
-/// Project configuration loaded from graft.yaml.
+/// Project configuration loaded from config.yaml.
 #[derive(Debug, Clone)]
-pub struct ProjectConfig {
+pub struct Config {
     pub name: String,
-    pub dependencies: Vec<Dependency>,
+    pub items: Vec<Item>,
 }
 
-/// A single dependency declaration.
+/// A single item declaration.
 #[derive(Debug, Clone)]
-pub struct Dependency {
-    pub name: DependencyName,
-    pub source: DependencySource,
+pub struct Item {
+    pub id: ItemId,
+    pub kind: ItemKind,
 }
 
-/// Where a dependency comes from.
+/// Where an item comes from.
 #[derive(Debug, Clone)]
-pub enum DependencySource {
-    Git { url: String, reference: String },
+pub enum ItemKind {
+    Remote { url: String, reference: String },
     Local { path: PathBuf },
 }
 ```
 
 **Key patterns:**
-- Newtypes for identifiers (`DependencyName`). Validation in constructor.
+- Newtypes for identifiers (`ItemId`). Validation in constructor.
 - Plain structs for data containers. Public fields when there's no invariant to protect.
-- Enums for closed sets of alternatives (`DependencySource`).
+- Enums for closed sets of alternatives (`ItemKind`).
 - Derive `Debug, Clone` on everything. Add `PartialEq, Eq, Hash` when needed for collections.
 
 ### Traits (Ports)
 
 ```rust
 /// Read project configuration from a source.
-pub trait ConfigReader {
-    fn read_config(&self, path: &Path) -> Result<ProjectConfig, ConfigError>;
+pub trait Repository {
+    fn load_config(&self, path: &Path) -> Result<Config, RepoError>;
 }
 
-/// Resolve a git reference to a concrete commit.
-pub trait RefResolver {
-    fn resolve_ref(&self, url: &str, reference: &str) -> Result<CommitId, GitError>;
+/// Look up a record by reference.
+pub trait Store {
+    fn lookup(&self, url: &str, reference: &str) -> Result<RecordId, StoreError>;
 }
 ```
 
 **Key patterns:**
 - Traits live in the core crate — the crate that *needs* the capability.
 - One capability per trait. Small interfaces are easier to fake in tests.
-- `&self` by default. Use `&mut self` only when the operation genuinely mutates internal state.
+- Choose the receiver that matches the operation's semantics: `&self` for reads, `&mut self` for mutations, `self` for consumption.
 - Return the core crate's error type, not adapter-specific errors.
 
 ### Error Types
@@ -150,7 +184,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum ConfigError {
+pub enum RepoError {
     #[error("config file not found: {path}")]
     NotFound { path: PathBuf },
 
@@ -196,52 +230,51 @@ impl ValidationError {
 Engine contains business logic. It depends on core and uses trait bounds to stay decoupled from adapters.
 
 ```rust
-use project_core::{
-    ConfigReader, RefResolver, ProjectConfig, Dependency,
-    DependencySource, CommitId, ConfigError,
+use my_tool_core::{
+    Store, Config, Item, ItemKind, RecordId, StoreError,
 };
 
-/// Resolved state of all dependencies.
+/// Result of processing all items.
 #[derive(Debug)]
-pub struct Resolution {
-    pub resolved: Vec<ResolvedDependency>,
+pub struct Report {
+    pub entries: Vec<ReportEntry>,
 }
 
 #[derive(Debug)]
-pub struct ResolvedDependency {
-    pub name: DependencyName,
-    pub commit: CommitId,
+pub struct ReportEntry {
+    pub id: ItemId,
+    pub record: RecordId,
 }
 
-/// Resolve all dependencies in a project configuration.
-pub fn resolve_all(
-    config: &ProjectConfig,
-    resolver: &impl RefResolver,
-) -> Result<Resolution, ResolveError> {
-    let mut resolved = Vec::new();
+/// Process all remote items in a configuration.
+pub fn process_all(
+    config: &Config,
+    store: &impl Store,
+) -> Result<Report, ProcessError> {
+    let mut entries = Vec::new();
 
-    for dep in &config.dependencies {
-        match &dep.source {
-            DependencySource::Git { url, reference } => {
-                let commit = resolver.resolve_ref(url, reference)?;
-                resolved.push(ResolvedDependency {
-                    name: dep.name.clone(),
-                    commit,
+    for item in &config.items {
+        match &item.kind {
+            ItemKind::Remote { url, reference } => {
+                let record = store.lookup(url, reference)?;
+                entries.push(ReportEntry {
+                    id: item.id.clone(),
+                    record,
                 });
             }
-            DependencySource::Local { .. } => {
-                // Local deps don't need resolution
+            ItemKind::Local { .. } => {
+                // Local items don't need processing
             }
         }
     }
 
-    Ok(Resolution { resolved })
+    Ok(Report { entries })
 }
 ```
 
 **Key patterns:**
 - Free functions for stateless operations. `impl` blocks when state is involved.
-- Take trait bounds as `&impl Trait` for simple cases. Use generic `<R: Trait>` when the type parameter is used in multiple positions.
+- Take trait bounds as `&impl Trait` for simple cases. Use generic `<S: Store>` when the type parameter is used in multiple positions.
 - Return domain-specific result types, not raw `Result<_, Box<dyn Error>>`.
 - Logic is pure where possible — given these inputs, produce this output.
 
@@ -254,7 +287,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "graft", about = "Semantic dependency management")]
+#[command(name = "my-tool", about = "A project management tool")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -266,9 +299,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Resolve all dependencies
-    Resolve,
-    /// Show dependency status
+    /// Process all items
+    Process,
+    /// Show item status
     Status,
 }
 
@@ -276,26 +309,26 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Resolve => cmd_resolve(cli.json),
+        Command::Process => cmd_process(cli.json),
         Command::Status => cmd_status(cli.json),
     }
 }
 
-fn cmd_resolve(json: bool) -> Result<()> {
-    let reader = FileConfigReader::new();
-    let config = reader
-        .read_config(Path::new("graft.yaml"))
+fn cmd_process(json: bool) -> Result<()> {
+    let repo = FileRepository::new();
+    let config = repo
+        .load_config(Path::new("config.yaml"))
         .context("failed to load project configuration")?;
 
-    let resolver = GitRefResolver::new();
-    let resolution = resolve_all(&config, &resolver)
-        .context("failed to resolve dependencies")?;
+    let store = HttpStore::new();
+    let report = process_all(&config, &store)
+        .context("failed to process items")?;
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&resolution)?);
+        println!("{}", serde_json::to_string_pretty(&report)?);
     } else {
-        for dep in &resolution.resolved {
-            println!("{}: {}", dep.name.as_str(), dep.commit);
+        for entry in &report.entries {
+            println!("{}: {}", entry.id.as_str(), entry.record);
         }
     }
 
@@ -315,81 +348,81 @@ fn cmd_resolve(json: bool) -> Result<()> {
 ### Unit Tests (in-file)
 
 ```rust
-// In crates/project-engine/src/resolve.rs
+// In src/process.rs (or crates/my-tool-engine/src/process.rs)
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    struct FakeResolver {
-        refs: HashMap<(String, String), CommitId>,
+    struct FakeStore {
+        records: HashMap<(String, String), RecordId>,
     }
 
-    impl FakeResolver {
+    impl FakeStore {
         fn new() -> Self {
-            Self { refs: HashMap::new() }
+            Self { records: HashMap::new() }
         }
 
-        fn with_ref(
+        fn with_record(
             mut self,
             url: &str,
             reference: &str,
-            commit: CommitId,
+            record: RecordId,
         ) -> Self {
-            self.refs.insert((url.to_string(), reference.to_string()), commit);
+            self.records.insert((url.to_string(), reference.to_string()), record);
             self
         }
     }
 
-    impl RefResolver for FakeResolver {
-        fn resolve_ref(&self, url: &str, reference: &str) -> Result<CommitId, GitError> {
-            self.refs
+    impl Store for FakeStore {
+        fn lookup(&self, url: &str, reference: &str) -> Result<RecordId, StoreError> {
+            self.records
                 .get(&(url.to_string(), reference.to_string()))
                 .cloned()
-                .ok_or(GitError::RefNotFound {
+                .ok_or(StoreError::NotFound {
                     reference: reference.to_string(),
                 })
         }
     }
 
     #[test]
-    fn resolves_git_dependency() {
-        let commit = CommitId::new("abc123");
-        let resolver = FakeResolver::new()
-            .with_ref("https://example.com/repo", "main", commit.clone());
+    fn processes_remote_item() {
+        let record = RecordId::new("abc123");
+        let store = FakeStore::new()
+            .with_record("https://example.com/repo", "main", record.clone());
 
-        let config = ProjectConfig {
+        let config = Config {
             name: "test".into(),
-            dependencies: vec![Dependency {
-                name: DependencyName::new("dep").unwrap(),
-                source: DependencySource::Git {
+            items: vec![Item {
+                id: ItemId::new("my-item").unwrap(),
+                kind: ItemKind::Remote {
                     url: "https://example.com/repo".into(),
                     reference: "main".into(),
                 },
             }],
         };
 
-        let resolution = resolve_all(&config, &resolver).unwrap();
-        assert_eq!(resolution.resolved.len(), 1);
-        assert_eq!(resolution.resolved[0].commit, commit);
+        let report = process_all(&config, &store).unwrap();
+        assert_eq!(report.entries.len(), 1);
+        assert_eq!(report.entries[0].record, record);
     }
 
     #[test]
-    fn skips_local_dependencies() {
-        let resolver = FakeResolver::new();
-        let config = ProjectConfig {
+    fn skips_local_items() {
+        let store = FakeStore::new();
+        let config = Config {
             name: "test".into(),
-            dependencies: vec![Dependency {
-                name: DependencyName::new("local-dep").unwrap(),
-                source: DependencySource::Local {
+            items: vec![Item {
+                id: ItemId::new("local-item").unwrap(),
+                kind: ItemKind::Local {
                     path: PathBuf::from("../local"),
                 },
             }],
         };
 
-        let resolution = resolve_all(&config, &resolver).unwrap();
-        assert!(resolution.resolved.is_empty());
+        let report = process_all(&config, &store).unwrap();
+        assert!(report.entries.is_empty());
     }
 }
 ```
@@ -403,14 +436,14 @@ mod tests {
 ### Integration Tests
 
 ```rust
-// In tests/resolve_integration.rs
-use project_engine::resolve_all;
+// In tests/process_integration.rs
+use my_tool_engine::process_all;
 
 #[test]
-fn resolve_from_real_config_file() {
-    // Uses real file I/O, real git operations against test fixtures
-    let reader = FileConfigReader::new();
-    let config = reader.read_config(Path::new("tests/fixtures/graft.yaml")).unwrap();
+fn process_from_real_config_file() {
+    // Uses real file I/O against test fixtures
+    let repo = FileRepository::new();
+    let config = repo.load_config(Path::new("tests/fixtures/config.yaml")).unwrap();
     // ...
 }
 ```
@@ -430,12 +463,12 @@ pub mod config;
 pub mod domain;
 pub mod error;
 
-pub use config::ProjectConfig;
-pub use domain::{Dependency, DependencyName, DependencySource};
-pub use error::{ConfigError, ValidationError};
+pub use config::Config;
+pub use domain::{Item, ItemId, ItemKind};
+pub use error::{RepoError, ValidationError};
 ```
 
-Each module is a single file until it grows beyond ~300 lines, then split into a directory:
+Split when a module covers multiple distinct concepts. A 500-line module about one concept is fine; a 200-line module mixing two concepts should split.
 
 ```
 src/
@@ -450,10 +483,250 @@ src/
 
 - `pub` — Part of the crate's public API. Stable.
 - `pub(crate)` — Used across modules within the crate. Not exposed to dependents.
-- `pub(super)` — Rarely needed. Used for test helpers.
+- `pub(super)` — Useful for internal sub-module organization, e.g. when a module is split into sub-files and sub-modules need access to shared helpers.
 - Private (default) — Implementation details.
 
 **Rule of thumb:** Start private. Promote to `pub(crate)` when another module needs it. Promote to `pub` only when an external crate needs it.
+
+## Ownership and API Design
+
+### Function Signatures
+
+Choose parameter types based on what the function needs:
+
+```rust
+// Borrows — the caller keeps ownership. Use for read-only access.
+fn validate(id: &ItemId) -> Result<(), ValidationError> { ... }
+
+// Owned — the function takes ownership. Use when the value will be stored.
+fn register(id: ItemId, record: RecordId) -> Entry { ... }
+
+// Mutable borrow — temporary exclusive access.
+fn update(store: &mut Vec<Entry>, entry: Entry) { ... }
+```
+
+**Guidelines:**
+- **Prefer borrowing** (`&T`) when the function only reads the value.
+- **Take ownership** (`T`) when the function stores the value in a struct or collection.
+- **Use `&mut T`** when the function modifies the value in place.
+- **Accept `&str`** instead of `&String`, and `&[T]` instead of `&Vec<T>` — broader types accept more callers.
+
+### When to Clone
+
+Clone when it simplifies the API. Don't fight the borrow checker for negligible performance gains in application code:
+
+```rust
+// Fine — clarity over micro-optimization
+let name = item.id.clone();
+entries.push(ReportEntry { id: name, ... });
+
+// Unnecessary — restructure instead of cloning in a loop
+// BAD: data.iter().map(|x| x.clone()).collect()
+// GOOD: data.into_iter().collect()  // move instead of clone
+```
+
+**Rule of thumb:** Prefer borrowing first. If lifetimes become tangled, clone. Profile before optimizing clones away.
+
+### Lifetime Patterns
+
+For application code, prefer owned types in structs. Lifetimes in structs complicate APIs and often aren't worth it:
+
+```rust
+// Prefer: owned types in structs
+struct Entry {
+    id: ItemId,
+    label: String,
+}
+
+// Avoid unless performance-critical:
+struct EntryRef<'a> {
+    id: &'a ItemId,
+    label: &'a str,
+}
+```
+
+Use lifetimes in function signatures when the borrow is straightforward:
+
+```rust
+// Fine — clear input-to-output relationship
+fn find<'a>(items: &'a [Item], id: &ItemId) -> Option<&'a Item> {
+    items.iter().find(|item| &item.id == id)
+}
+
+// Lifetime elision handles the common case automatically:
+fn first(items: &[Item]) -> Option<&Item> {
+    items.first()
+}
+```
+
+## Conversions and Builders
+
+### `From` / `Into`
+
+Implement `From` for infallible conversions between types:
+
+```rust
+impl From<RawConfig> for Config {
+    fn from(raw: RawConfig) -> Self {
+        Config {
+            name: raw.name,
+            items: Vec::new(), // defaults for optional fields
+        }
+    }
+}
+
+// Now you can use .into():
+let config: Config = raw_config.into();
+```
+
+Use `TryFrom` when conversion can fail:
+
+```rust
+impl TryFrom<RawConfig> for Config {
+    type Error = ValidationError;
+
+    fn try_from(raw: RawConfig) -> Result<Self, Self::Error> {
+        let items = raw.items
+            .into_iter()
+            .map(Item::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Config { name: raw.name, items })
+    }
+}
+```
+
+### `From` and Error Conversion
+
+`From` powers `?` for error conversion. When you write `#[from]` in a thiserror enum, it generates a `From` impl, which lets `?` automatically convert:
+
+```rust
+#[derive(Debug, Error)]
+pub enum ProcessError {
+    #[error("store error")]
+    Store(#[from] StoreError),
+
+    #[error("config error")]
+    Config(#[from] RepoError),
+}
+
+// Now ? converts automatically:
+fn process(store: &impl Store, repo: &impl Repository) -> Result<(), ProcessError> {
+    let config = repo.load_config(path)?;  // RepoError -> ProcessError via From
+    let record = store.lookup(url, r)?;     // StoreError -> ProcessError via From
+    Ok(())
+}
+```
+
+### Builder Pattern
+
+Use builders for constructing types with many optional fields:
+
+```rust
+pub struct ServerConfig {
+    host: String,
+    port: u16,
+    max_connections: usize,
+    timeout_secs: u64,
+}
+
+pub struct ServerConfigBuilder {
+    host: String,
+    port: u16,
+    max_connections: usize,
+    timeout_secs: u64,
+}
+
+impl ServerConfigBuilder {
+    pub fn new(host: impl Into<String>, port: u16) -> Self {
+        Self {
+            host: host.into(),
+            port,
+            max_connections: 100,
+            timeout_secs: 30,
+        }
+    }
+
+    pub fn max_connections(mut self, n: usize) -> Self {
+        self.max_connections = n;
+        self
+    }
+
+    pub fn timeout_secs(mut self, secs: u64) -> Self {
+        self.timeout_secs = secs;
+        self
+    }
+
+    pub fn build(self) -> ServerConfig {
+        ServerConfig {
+            host: self.host,
+            port: self.port,
+            max_connections: self.max_connections,
+            timeout_secs: self.timeout_secs,
+        }
+    }
+}
+```
+
+Use builders when a type has more than 2-3 optional fields. For simpler types, a `new()` constructor with required fields and `Default` is sufficient.
+
+## Documentation
+
+### Doc Comments
+
+Use `///` for public items, `//!` for module-level docs:
+
+```rust
+//! # Item processing
+//!
+//! This module handles processing items from remote sources.
+
+/// Process all items and return a summary report.
+///
+/// Skips local items — only remote items are processed.
+///
+/// # Errors
+///
+/// Returns `ProcessError` if any remote lookup fails.
+pub fn process_all(config: &Config, store: &impl Store) -> Result<Report, ProcessError> {
+    // ...
+}
+```
+
+### Doc Examples
+
+Code blocks in doc comments run as tests with `cargo test`:
+
+```rust
+/// Parse an item ID from a string.
+///
+/// ```
+/// use my_tool_core::ItemId;
+///
+/// let id = ItemId::new("widget-1").unwrap();
+/// assert_eq!(id.as_str(), "widget-1");
+/// ```
+pub fn new(id: impl Into<String>) -> Result<Self, ValidationError> {
+    // ...
+}
+```
+
+### `#[non_exhaustive]`
+
+Use on public enums that may gain variants:
+
+```rust
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum StoreError {
+    #[error("not found: {reference}")]
+    NotFound { reference: String },
+
+    #[error("connection failed")]
+    ConnectionFailed,
+}
+```
+
+This prevents downstream code from matching exhaustively, allowing you to add variants without a breaking change.
 
 ## Configuration Patterns
 
@@ -467,31 +740,31 @@ use std::path::PathBuf;
 struct RawConfig {
     name: String,
     #[serde(default)]
-    dependencies: Vec<RawDependency>,
+    items: Vec<RawItem>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-struct RawDependency {
+struct RawItem {
     name: String,
-    git: Option<String>,
+    url: Option<String>,
     #[serde(rename = "ref")]
     reference: Option<String>,
     local: Option<PathBuf>,
 }
 
-impl TryFrom<RawConfig> for ProjectConfig {
-    type Error = ConfigError;
+impl TryFrom<RawConfig> for Config {
+    type Error = RepoError;
 
     fn try_from(raw: RawConfig) -> Result<Self, Self::Error> {
-        let dependencies = raw.dependencies
+        let items = raw.items
             .into_iter()
-            .map(Dependency::try_from)
+            .map(Item::try_from)
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(ProjectConfig {
+        Ok(Config {
             name: raw.name,
-            dependencies,
+            items,
         })
     }
 }

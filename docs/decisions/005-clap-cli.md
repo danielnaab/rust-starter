@@ -6,55 +6,11 @@ status: accepted
 
 ## Context
 
-We need a CLI framework for graft and grove command-line interfaces. The framework should support subcommands, help generation, and type-safe argument parsing.
+We need a CLI framework for command-line applications. The framework should support subcommands, help generation, and type-safe argument parsing.
 
 ## Decision
 
 Use clap with the derive macro for CLI definitions.
-
-```rust
-use clap::{Parser, Subcommand};
-
-#[derive(Parser)]
-#[command(name = "graft", version, about)]
-pub struct Cli {
-    #[command(subcommand)]
-    pub command: Command,
-
-    /// Output as JSON for machine consumption
-    #[arg(long, global = true)]
-    pub json: bool,
-
-    /// Increase verbosity (-v, -vv, -vvv)
-    #[arg(short, long, action = clap::ArgAction::Count, global = true)]
-    pub verbose: u8,
-}
-
-#[derive(Subcommand)]
-pub enum Command {
-    /// Resolve all dependencies to concrete commits
-    Resolve {
-        /// Only resolve this dependency
-        #[arg(long)]
-        name: Option<String>,
-    },
-
-    /// Show status of all dependencies
-    Status,
-
-    /// Add a new dependency
-    Add {
-        /// Dependency name
-        name: String,
-        /// Git URL
-        #[arg(long)]
-        git: String,
-        /// Git reference (branch, tag, commit)
-        #[arg(long, default_value = "main")]
-        reference: String,
-    },
-}
-```
 
 ## Rationale
 
@@ -79,3 +35,7 @@ pub enum Command {
 **structopt:** Predecessor to clap derive. Merged into clap 3+. No reason to use separately.
 
 **Manual argument parsing:** Maximum control but tedious. Only justified for extremely performance-sensitive tools.
+
+## See Also
+
+- [architecture.md — Binary Patterns](../architecture/architecture.md#binary-patterns) for the full CLI struct and wiring example

@@ -6,79 +6,31 @@ status: accepted
 
 ## Context
 
-Testing business logic that depends on traits (I/O, git, filesystem) requires providing implementations in tests. We need a strategy for test doubles.
+Testing business logic that depends on traits (I/O, network, filesystem) requires providing implementations in tests. We need a strategy for test doubles.
 
 ## Decision
 
 Write trait implementations by hand ("fakes") with builder-style setup. No mocking frameworks.
 
 ```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
+struct FakeStore {
+    records: HashMap<String, RecordId>,
+    should_fail: bool,
+}
 
-    /// Fake git resolver that returns pre-configured results.
-    struct FakeResolver {
-        refs: HashMap<String, CommitId>,
-        should_fail: bool,
+impl FakeStore {
+    fn new() -> Self {
+        Self { records: HashMap::new(), should_fail: false }
     }
 
-    impl FakeResolver {
-        fn new() -> Self {
-            Self {
-                refs: HashMap::new(),
-                should_fail: false,
-            }
-        }
-
-        fn with_ref(mut self, reference: &str, commit: CommitId) -> Self {
-            self.refs.insert(reference.to_string(), commit);
-            self
-        }
-
-        fn failing(mut self) -> Self {
-            self.should_fail = true;
-            self
-        }
+    fn with_record(mut self, reference: &str, record: RecordId) -> Self {
+        self.records.insert(reference.to_string(), record);
+        self
     }
 
-    impl RefResolver for FakeResolver {
-        fn resolve_ref(&self, _url: &str, reference: &str) -> Result<CommitId, GitError> {
-            if self.should_fail {
-                return Err(GitError::NetworkError("fake failure".into()));
-            }
-            self.refs
-                .get(reference)
-                .cloned()
-                .ok_or(GitError::RefNotFound {
-                    reference: reference.to_string(),
-                })
-        }
-    }
-
-    #[test]
-    fn resolves_known_ref() {
-        let resolver = FakeResolver::new()
-            .with_ref("main", CommitId::new("abc123"));
-
-        let result = resolve(&resolver, "https://example.com", "main");
-        assert_eq!(result.unwrap(), CommitId::new("abc123"));
-    }
-
-    #[test]
-    fn returns_error_for_unknown_ref() {
-        let resolver = FakeResolver::new();
-
-        let result = resolve(&resolver, "https://example.com", "nonexistent");
-        assert!(matches!(result, Err(GitError::RefNotFound { .. })));
-    }
-
-    #[test]
-    fn propagates_network_errors() {
-        let resolver = FakeResolver::new().failing();
-
-        let result = resolve(&resolver, "https://example.com", "main");
-        assert!(matches!(result, Err(GitError::NetworkError(_))));
+    fn failing(mut self) -> Self {
+        self.should_fail = true;
+        self
     }
 }
 ```
@@ -91,12 +43,12 @@ mod tests {
 - **Debuggable** — Step through fake implementations like any other code.
 - **Reusable** — The same fake works across multiple test functions. Extract to a shared module when used across test files.
 - **Refactor-friendly** — When a trait changes, the compiler tells you exactly which fakes to update. Mock setups silently become stale.
-- **Builder pattern** — `.with_ref("main", commit).failing()` reads as a specification of the test scenario.
+- **Builder pattern** — `.with_record("main", record).failing()` reads as a specification of the test scenario.
 
 **Why not mockall:**
 
 - `mockall` generates code via procedural macros — harder to read and debug.
-- Mock expectations (`expect_resolve_ref().times(1).returning(...)`) test implementation details, not behavior.
+- Mock expectations (`expect_lookup().times(1).returning(...)`) test implementation details, not behavior.
 - Mocks encourage testing *how* code interacts with dependencies rather than *what* it produces.
 - When a trait changes, mock setups may compile but silently test the wrong thing.
 
@@ -105,13 +57,12 @@ mod tests {
 When a fake is used across multiple test files, extract it:
 
 ```rust
-// tests/common/mod.rs (or tests/fakes.rs)
-pub struct FakeResolver { ... }
-impl RefResolver for FakeResolver { ... }
+// tests/common/mod.rs
+pub struct FakeStore { ... }
 
-// tests/resolve_test.rs
+// tests/process_test.rs
 mod common;
-use common::FakeResolver;
+use common::FakeStore;
 ```
 
 Or for in-crate sharing:
@@ -120,7 +71,7 @@ Or for in-crate sharing:
 // src/testing.rs (behind cfg(test))
 #[cfg(test)]
 pub(crate) mod fakes {
-    pub struct FakeResolver { ... }
+    pub struct FakeStore { ... }
 }
 ```
 
@@ -128,5 +79,9 @@ pub(crate) mod fakes {
 
 - **Unit tests** — `#[cfg(test)] mod tests` in the same file as the code. Test individual functions.
 - **Integration tests** — `tests/` directory. Test multiple components wired together.
-- **Test fixtures** — `tests/fixtures/` for sample config files, git repos, etc.
+- **Test fixtures** — `tests/fixtures/` for sample config files, etc.
 - **Shared fakes** — `tests/common/mod.rs` or `src/testing.rs` behind `#[cfg(test)]`.
+
+## See Also
+
+- [architecture.md — Testing Patterns](../architecture/architecture.md#testing-patterns) for full fake and test examples
