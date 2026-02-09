@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: stable
 ---
 
 # ADR 008: Testing Without Mocks
@@ -82,6 +82,6 @@ pub(crate) mod fakes {
 - **Test fixtures** — `tests/fixtures/` for sample config files, etc.
 - **Shared fakes** — `tests/common/mod.rs` or `src/testing.rs` behind `#[cfg(test)]`.
 
-## See Also
+## Sources
 
 - [architecture.md — Testing Patterns](../architecture/architecture.md#testing-patterns) for full fake and test examples

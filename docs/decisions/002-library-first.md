@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: stable
 ---
 
 # ADR 002: Library-First Architecture
@@ -47,6 +47,6 @@ Everything else is in the library.
 - **Library depending on clap** — The library should never know it's being called from a CLI.
 - **Formatting in the library** — The library returns data. The binary decides how to present it.
 
-## See Also
+## Sources
 
 - [architecture.md — Binary Patterns](../architecture/architecture.md#binary-patterns) for the full binary example

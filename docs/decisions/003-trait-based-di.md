@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: stable
 ---
 
 # ADR 003: Trait-Based Dependency Injection
@@ -54,7 +54,8 @@ Use `dyn Trait` only when you need heterogeneous collections — storing differe
 
 **Function pointers:** `fn(path: &Path) -> Result<Config>`. Works but loses access to state and is harder to compose.
 
-## See Also
+## Sources
 
 - [architecture.md — Traits (Ports)](../architecture/architecture.md#traits-ports) for trait definition patterns
 - [architecture.md — Engine Crate Patterns](../architecture/architecture.md#engine-crate-patterns) for usage with trait bounds
+- [The Rust Programming Language — Traits](https://doc.rust-lang.org/book/ch10-02-traits.html)

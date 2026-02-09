@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: stable
 ---
 
 # ADR 005: clap for CLI
@@ -36,6 +36,7 @@ Use clap with the derive macro for CLI definitions.
 
 **Manual argument parsing:** Maximum control but tedious. Only justified for extremely performance-sensitive tools.
 
-## See Also
+## Sources
 
 - [architecture.md — Binary Patterns](../architecture/architecture.md#binary-patterns) for the full CLI struct and wiring example
+- [clap](https://docs.rs/clap)

@@ -139,3 +139,7 @@ tokio.workspace = true
 cargo update                        # Update all deps within semver bounds
 cargo update -p specific-crate      # Update one dependency
 ```
+
+## Sources
+
+- [architecture.md](../architecture/architecture.md)

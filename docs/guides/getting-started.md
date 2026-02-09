@@ -176,3 +176,8 @@ cargo fmt --all -- --check
 - Read the [architecture overview](../architecture/architecture.md)
 - Follow the [development guide](development.md) to add your first feature
 - Review the [ADRs](../decisions/) to understand the reasoning behind each pattern
+
+## Sources
+
+- [architecture.md](../architecture/architecture.md)
+- [The Cargo Book](https://doc.rust-lang.org/cargo/)

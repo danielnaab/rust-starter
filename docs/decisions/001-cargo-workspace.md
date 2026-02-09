@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: stable
 ---
 
 # ADR 001: Cargo Workspace Layout
@@ -39,6 +39,7 @@ Don't split when:
 - The project is small and boundaries would be ceremony
 - You're splitting speculatively "in case we need it later"
 
-## See Also
+## Sources
 
 - [architecture.md — Crate Structure](../architecture/architecture.md#crate-structure) for full layout examples
+- [The Cargo Book — Workspaces](https://doc.rust-lang.org/cargo/reference/workspaces.html)

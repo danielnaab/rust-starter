@@ -1,3 +1,7 @@
+---
+status: stable
+---
+
 # Rust Starter
 
 Idiomatic Rust patterns and architectural guidance for Rust applications.
@@ -51,3 +55,7 @@ Dependencies flow inward. Core has no dependencies on outer layers. Adapters imp
 | clap CLI | Derive-based, type-driven CLI | [005](docs/decisions/005-clap-cli.md) |
 | Newtype pattern | Zero-cost domain type safety | [007](docs/decisions/007-newtype-pattern.md) |
 | Testing without mocks | Trait fakes with builder setup | [008](docs/decisions/008-testing-without-mocks.md) |
+
+## Sources
+
+- [architecture.md](docs/architecture/architecture.md)

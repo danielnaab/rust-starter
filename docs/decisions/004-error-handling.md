@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: stable
 ---
 
 # ADR 004: Error Handling Strategy
@@ -68,7 +68,9 @@ Rust has two error handling paradigms: `Result<T, E>` for recoverable errors and
 
 **`eyre` instead of `anyhow`:** Similar capabilities. `anyhow` has larger ecosystem adoption and simpler API.
 
-## See Also
+## Sources
 
 - [architecture.md — Error Types](../architecture/architecture.md#error-types) for full error type examples
 - [architecture.md — Conversions and Builders](../architecture/architecture.md#from-and-error-conversion) for how `From` powers `?`
+- [thiserror](https://docs.rs/thiserror)
+- [anyhow](https://docs.rs/anyhow)

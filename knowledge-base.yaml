@@ -27,6 +27,15 @@ sources:
     - path: "docs/reference/"
       note: "Reference material derived from patterns"
 
+rules:
+  lifecycle:
+    statuses: ["draft", "working", "stable", "deprecated"]
+  provenance:
+    requiredFor: ["factual-claims", "operational-guidance", "architectural-decisions"]
+  writes:
+    allow: ["docs/**"]
+    deny: ["knowledge-base.yaml"]
+
 conventions:
   links: "relative markdown links only"
   frontmatter: "YAML frontmatter with status on all docs"

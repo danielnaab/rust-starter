@@ -63,3 +63,8 @@ Guidance repository for idiomatic Rust patterns. No compilable code — document
 - **Canonical:** ADRs in `docs/decisions/` and architecture in `docs/architecture/`
 - **Interpretive:** Guides in `docs/guides/` and this file
 - **When in doubt:** Follow the pattern shown in the architecture doc
+
+## Sources
+
+- [architecture.md](architecture/architecture.md)
+- [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)

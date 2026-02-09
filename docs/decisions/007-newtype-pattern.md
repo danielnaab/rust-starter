@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: stable
 ---
 
 # ADR 007: Newtype Pattern for Domain Identity
@@ -81,6 +81,7 @@ Use `#[serde(transparent)]` so newtypes serialize as their inner value, not as a
 
 **Validated smart constructors without newtypes:** Validates but doesn't prevent passing raw strings to functions that expect validated ones.
 
-## See Also
+## Sources
 
 - [architecture.md — Domain Types](../architecture/architecture.md#domain-types) for full newtype examples in context
+- [Rust API Guidelines — Type Safety](https://rust-lang.github.io/api-guidelines/type-safety.html)

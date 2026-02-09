@@ -36,3 +36,7 @@ See [agents.md](agents.md) for structured operational guidance.
 
 ### Reference
 - [Project Reference](reference/project-reference.md) — Structure, config, tooling, code quality
+
+## Sources
+
+- [architecture.md](architecture/architecture.md)

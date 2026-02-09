@@ -296,3 +296,8 @@ rustfmt handles import sorting automatically with `merge_imports`.
 For binary projects, commit `Cargo.lock`. This ensures reproducible builds.
 
 For library-only projects, don't commit `Cargo.lock` — let downstream consumers resolve versions.
+
+## Sources
+
+- [architecture.md](../architecture/architecture.md)
+- [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
