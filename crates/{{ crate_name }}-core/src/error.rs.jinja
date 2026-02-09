@@ -6,6 +6,13 @@ use thiserror::Error;
 /// Top-level error for the core crate.
 #[derive(Debug, Error)]
 pub enum CoreError {
+    /// A requested resource was not found.
+    #[error("{id} not found")]
+    NotFound {
+        /// The ID that was looked up.
+        id: String,
+    },
+
     /// A validation error occurred.
     #[error(transparent)]
     Validation(#[from] ValidationError),

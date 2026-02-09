@@ -32,9 +32,12 @@ impl FakeStore {
 
 impl Store for FakeStore {
     fn lookup(&self, id: &ItemId) -> Result<String, CoreError> {
-        self.items.get(id.as_str()).cloned().ok_or_else(|| {
-            CoreError::Validation({{ core_module }}::ValidationError::empty_field("item"))
-        })
+        self.items
+            .get(id.as_str())
+            .cloned()
+            .ok_or_else(|| CoreError::NotFound {
+                id: id.to_string(),
+            })
     }
 }
 {% else -%}

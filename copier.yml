@@ -99,11 +99,6 @@ license:
     - Proprietary
 
 # Computed variables (not shown to user)
-module_name:
-  type: str
-  default: "{{ crate_name.replace('-', '_') }}"
-  when: false
-
 core_crate:
   type: str
   default: "{{ crate_name }}-core"
@@ -122,11 +117,6 @@ core_module:
 engine_module:
   type: str
   default: "{{ crate_name.replace('-', '_') }}_engine"
-  when: false
-
-current_year:
-  type: str
-  default: "2025"
   when: false
 
 # Post-generation tasks
