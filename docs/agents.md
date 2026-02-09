@@ -28,7 +28,9 @@ Guidance repository for idiomatic Rust patterns. No compilable code — document
 | Step-by-step recipes | [development.md](guides/development.md) |
 | Project setup | [getting-started.md](guides/getting-started.md) |
 | Cargo.toml templates, tooling commands | [project-reference.md](reference/project-reference.md) |
+| Type design (invalid states, newtypes) | [architecture.md — Type Design Principles](architecture/architecture.md#type-design-principles) |
 | Ownership, lifetimes, `From`/`Into` | [architecture.md — Ownership and API Design](architecture/architecture.md#ownership-and-api-design) |
+| Naming conventions (`as_`/`to_`/`into_`) | [project-reference.md — Naming Conventions](reference/project-reference.md#naming-conventions) |
 | Error conversion with `?` | [architecture.md — Conversions and Builders](architecture/architecture.md#conversions-and-builders) |
 
 ## Common Operations

@@ -100,6 +100,29 @@ my-tool/
 
 Core contains domain types, trait definitions, and error types. It has minimal dependencies (typically just `serde` and `thiserror`).
 
+### Type Design Principles
+
+**Make invalid states unrepresentable.** Use the type system to eliminate impossible combinations at compile time:
+
+```rust
+// BAD: boolean flag — caller must know which combinations are valid
+struct Item {
+    url: Option<String>,
+    path: Option<PathBuf>,
+    is_remote: bool,  // must be consistent with url/path
+}
+
+// GOOD: enum makes exactly one variant possible
+enum ItemKind {
+    Remote { url: String },
+    Local { path: PathBuf },
+}
+```
+
+Apply this at every level: enums over boolean flags, newtypes over raw strings, `Result` over sentinel values. If a function can't fail, don't return `Result`. If a value can't be empty, validate at construction and carry the proof in the type.
+
+**Parse, don't validate.** Validate data once at the boundary (parsing input, reading config), then carry the proof in the type. Code that receives an `ItemId` knows it's already valid — no re-checking needed.
+
 ### Domain Types
 
 ```rust
@@ -156,6 +179,8 @@ pub enum ItemKind {
 - Plain structs for data containers. Public fields when there's no invariant to protect.
 - Enums for closed sets of alternatives (`ItemKind`).
 - Derive `Debug, Clone` on everything. Add `PartialEq, Eq, Hash` when needed for collections.
+- Implement `Display` for types with a natural human-readable form (identifiers, errors). For complex structs, `Debug` is sufficient.
+- Derive or implement `Default` when a type has a meaningful zero/empty state. Use `..Default::default()` for partial struct construction in tests.
 
 ### Traits (Ports)
 
@@ -224,6 +249,11 @@ impl ValidationError {
 - `#[from]` for automatic conversion from underlying errors.
 - Constructor methods on error types for ergonomic creation.
 - All library errors derive `Debug` and `thiserror::Error`.
+- Use `#[error(transparent)]` to wrap an error without adding a new message layer — the inner error's display is used directly:
+  ```rust
+  #[error(transparent)]
+  Validation(#[from] ValidationError),  // displays as the inner error
+  ```
 
 ## Engine Crate Patterns
 
@@ -277,6 +307,20 @@ pub fn process_all(
 - Take trait bounds as `&impl Trait` for simple cases. Use generic `<S: Store>` when the type parameter is used in multiple positions.
 - Return domain-specific result types, not raw `Result<_, Box<dyn Error>>`.
 - Logic is pure where possible — given these inputs, produce this output.
+- Prefer iterator chains when the transformation is straightforward. The `collect::<Result<Vec<_>, _>>()` pattern short-circuits on the first error:
+  ```rust
+  let entries = config.items.iter()
+      .filter_map(|item| match &item.kind {
+          ItemKind::Remote { url, reference } => Some((item, url, reference)),
+          ItemKind::Local { .. } => None,
+      })
+      .map(|(item, url, reference)| {
+          let record = store.lookup(url, reference)?;
+          Ok(ReportEntry { id: item.id.clone(), record })
+      })
+      .collect::<Result<Vec<_>, ProcessError>>()?;
+  ```
+  Use manual loops when the logic involves complex accumulation across iterations or would be harder to read as a chain.
 
 ## Binary Patterns
 
@@ -559,6 +603,20 @@ fn first(items: &[Item]) -> Option<&Item> {
 }
 ```
 
+### Naming Conventions
+
+Follow the [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/) naming patterns. The most common:
+
+| Pattern | Meaning | Example |
+|---|---|---|
+| `as_str()`, `as_bytes()` | Free borrowed view, no allocation | `fn as_str(&self) -> &str` |
+| `to_string()`, `to_vec()` | Expensive conversion, new allocation | `fn to_string(&self) -> String` |
+| `into_inner()`, `into_vec()` | Consumes self, returns owned data | `fn into_inner(self) -> String` |
+| `is_empty()`, `has_children()` | Boolean predicate, no mutation | `fn is_empty(&self) -> bool` |
+| `with_capacity()` | Constructor variant | `fn with_capacity(n: usize) -> Self` |
+
+See [project-reference.md — Naming Conventions](../reference/project-reference.md#naming-conventions) for the full quick-reference table.
+
 ## Conversions and Builders
 
 ### `From` / `Into`
@@ -671,6 +729,8 @@ Use builders when a type has more than 2-3 optional fields. For simpler types, a
 
 ## Documentation
 
+**Use `cargo doc --open` as a design feedback tool.** If the generated docs look confusing, the API is confusing. Review them before stabilizing public interfaces.
+
 ### Doc Comments
 
 Use `///` for public items, `//!` for module-level docs:
@@ -775,3 +835,10 @@ impl TryFrom<RawConfig> for Config {
 - `rename_all = "kebab-case"` for YAML/TOML conventions.
 - `#[serde(default)]` for optional fields.
 - Validation happens at the boundary between raw and domain, not during deserialization.
+
+## Sources
+
+- [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/) — Naming conventions, type design, interoperability
+- [The Rust Programming Language](https://doc.rust-lang.org/book/) — Ownership, traits, error handling fundamentals
+- [Rust Design Patterns](https://rust-unofficial.github.io/patterns/) — Community pattern catalog
+- [Rust for Rustaceans](https://rust-for-rustaceans.com/) — Intermediate API design, error handling trade-offs

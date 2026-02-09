@@ -222,6 +222,58 @@ crates/my-tool-core/ (or core modules in single-crate)
 
 **Rule:** Core never depends on engine. Engine never depends on the binary. Dependencies flow inward only.
 
+## Naming Conventions
+
+Follow the [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/) naming patterns:
+
+### Conversion Methods
+
+| Prefix | Cost | Ownership | Example |
+|---|---|---|---|
+| `as_` | Free | Borrows `&self`, returns reference | `as_str() -> &str` |
+| `to_` | Expensive | Borrows `&self`, returns owned | `to_string() -> String` |
+| `into_` | Variable | Consumes `self`, returns owned | `into_inner() -> String` |
+
+### Predicates
+
+| Prefix | Returns | Example |
+|---|---|---|
+| `is_` | `bool` | `is_empty()`, `is_valid()` |
+| `has_` | `bool` | `has_children()`, `has_key()` |
+
+### Constructors and Factories
+
+| Pattern | When | Example |
+|---|---|---|
+| `new()` | Primary constructor | `ItemId::new("x")` |
+| `with_*()` | Constructor variant | `Vec::with_capacity(10)` |
+| `from_*()` | Named conversion (when `From` trait is insufficient) | `Config::from_path(p)` |
+| `try_new()` | Fallible primary constructor (alternative to `new() -> Result`) | `ItemId::try_new("x")` |
+
+### Iterators
+
+| Method | Returns | Example |
+|---|---|---|
+| `iter()` | `Iterator<Item = &T>` | `items.iter()` |
+| `iter_mut()` | `Iterator<Item = &mut T>` | `items.iter_mut()` |
+| `into_iter()` | `Iterator<Item = T>` (consumes) | `items.into_iter()` |
+
+### Attributes
+
+**`#[must_use]`** — Add to functions where ignoring the return value is almost certainly a bug. Particularly useful on builder methods and pure functions:
+
+```rust
+#[must_use]
+pub fn with_timeout(mut self, secs: u64) -> Self {
+    self.timeout = secs;
+    self
+}
+```
+
+The `must_use_candidate` clippy lint is suppressed (too noisy), so add `#[must_use]` explicitly where it matters.
+
+See [architecture.md — Naming Conventions](../architecture/architecture.md#naming-conventions) for design rationale.
+
 ## Import Conventions
 
 ```rust
